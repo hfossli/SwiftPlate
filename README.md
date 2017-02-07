@@ -17,7 +17,7 @@ cd ~/Downloads && curl -L https://github.com/hfossli/SwiftPlate/archive/master.z
 
 Then you'll be able to run `swiftplate` from any folder. E.g.
 ```
-swiftplate --template hfossli/swiftplate-ios-app
+swiftplate --template hfossli/replicate-ios-app
 ```
 
 ### Manually
