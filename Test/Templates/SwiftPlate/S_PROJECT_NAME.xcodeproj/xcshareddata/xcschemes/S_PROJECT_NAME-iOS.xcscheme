@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "52D6DA0E1BF000BD002C0205"
-               BuildableName = "{PROJECT}.framework"
-               BlueprintName = "{PROJECT}-macOS"
-               ReferencedContainer = "container:{PROJECT}.xcodeproj">
+               BlueprintIdentifier = "52D6D97B1BEFF229002C0205"
+               BuildableName = "S_PROJECT_NAME.framework"
+               BlueprintName = "S_PROJECT_NAME-iOS"
+               ReferencedContainer = "container:S_PROJECT_NAME.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,20 +33,20 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "DD7502791C68FCFC006590AF"
-               BuildableName = "{PROJECT}-macOS Tests.xctest"
-               BlueprintName = "{PROJECT}-macOS Tests"
-               ReferencedContainer = "container:{PROJECT}.xcodeproj">
+               BlueprintIdentifier = "52D6D9851BEFF229002C0205"
+               BuildableName = "S_PROJECT_NAME-iOS Tests.xctest"
+               BlueprintName = "S_PROJECT_NAME-iOS Tests"
+               ReferencedContainer = "container:S_PROJECT_NAME.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "52D6DA0E1BF000BD002C0205"
-            BuildableName = "{PROJECT}.framework"
-            BlueprintName = "{PROJECT}-macOS"
-            ReferencedContainer = "container:{PROJECT}.xcodeproj">
+            BlueprintIdentifier = "52D6D97B1BEFF229002C0205"
+            BuildableName = "S_PROJECT_NAME.framework"
+            BlueprintName = "S_PROJECT_NAME-iOS"
+            ReferencedContainer = "container:S_PROJECT_NAME.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <AdditionalOptions>
@@ -65,10 +65,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "52D6DA0E1BF000BD002C0205"
-            BuildableName = "{PROJECT}.framework"
-            BlueprintName = "{PROJECT}-macOS"
-            ReferencedContainer = "container:{PROJECT}.xcodeproj">
+            BlueprintIdentifier = "52D6D97B1BEFF229002C0205"
+            BuildableName = "S_PROJECT_NAME.framework"
+            BlueprintName = "S_PROJECT_NAME-iOS"
+            ReferencedContainer = "container:S_PROJECT_NAME.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <AdditionalOptions>
@@ -83,10 +83,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "52D6DA0E1BF000BD002C0205"
-            BuildableName = "{PROJECT}.framework"
-            BlueprintName = "{PROJECT}-macOS"
-            ReferencedContainer = "container:{PROJECT}.xcodeproj">
+            BlueprintIdentifier = "52D6D97B1BEFF229002C0205"
+            BuildableName = "S_PROJECT_NAME.framework"
+            BlueprintName = "S_PROJECT_NAME-iOS"
+            ReferencedContainer = "container:S_PROJECT_NAME.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
    </ProfileAction>

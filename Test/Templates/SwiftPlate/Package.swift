@@ -1,5 +1,5 @@
 import PackageDescription
 
 let package = Package(
-    name: "{PROJECT}"
+    name: "S_PROJECT_NAME"
 )

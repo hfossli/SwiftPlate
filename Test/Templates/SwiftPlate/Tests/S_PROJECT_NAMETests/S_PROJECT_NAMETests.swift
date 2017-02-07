@@ -1,7 +1,7 @@
 /**
- *  {PROJECT}
+ *  S_PROJECT_NAME
  *
- *  Copyright (c) {YEAR} {AUTHOR}. Licensed under the MIT license, as follows:
+ *  Copyright (c) 2017 S_AUTHOR_NAME. Licensed under the MIT license, as follows:
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -24,19 +24,19 @@
 
 import Foundation
 import XCTest
-import {PROJECT}
+import S_PROJECT_NAME
 
-class {PROJECT}Tests: XCTestCase {
+class S_PROJECT_NAMETests: XCTestCase {
     func testExample() {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct results.
-        //// XCTAssertEqual({PROJECT}().text, "Hello, World!")
+        //// XCTAssertEqual(S_PROJECT_NAME().text, "Hello, World!")
     }
 }
 
 #if os(Linux)
-extension {PROJECT}Tests {
-    static var allTests : [(String, ({PROJECT}Tests) -> () throws -> Void)] {
+extension S_PROJECT_NAMETests {
+    static var allTests : [(String, (S_PROJECT_NAMETests) -> () throws -> Void)] {
         return [
             ("testExample", testExample),
         ]

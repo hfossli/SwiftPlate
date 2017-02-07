@@ -3,7 +3,10 @@
 /**
  *  SwiftPlate
  *
- *  Copyright (c) 2016 John Sundell. Licensed under the MIT license, as follows:
+ *  Copyright (c) 2017 Håvard Fossli.
+ *  Copyright (c) 2016 John Sundell. 
+ *
+ *  Licensed under the MIT license, as follows:
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -26,10 +29,8 @@
 
 import Foundation
 
-// MARK: - Extensions
-
 extension Process {
-    @discardableResult func launchBash(withCommand command: String) -> String? {
+    @discardableResult func launchBash(withCommand command: String) throws -> String? {
         launchPath = "/bin/bash"
         arguments = ["-c", command]
         
@@ -46,8 +47,8 @@ extension Process {
         return String(data: outputData, encoding: .utf8)?.nonEmpty
     }
     
-    func gitConfigValue(forKey key: String) -> String? {
-        return launchBash(withCommand: "git config --global --get \(key)")?.trimmingCharacters(in: .whitespacesAndNewlines)
+    func gitConfigValue(forKey key: String) throws -> String? {
+        return try launchBash(withCommand: "git config --global --get \(key)")?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -73,11 +74,9 @@ extension String {
 extension FileManager {
     func isFolder(atPath path: String) -> Bool {
         var objCBool: ObjCBool = false
-        
         guard fileExists(atPath: path, isDirectory: &objCBool) else {
             return false
         }
-        
         return objCBool.boolValue
     }
 }
@@ -89,83 +88,63 @@ extension Array {
         }
         
         return self[index + 1]
-    }
+    } 
 }
 
-// MARK: - Types
-
-struct Arguments {
-    var destination: String?
-    var projectName: String?
-    var authorName: String?
-    var authorEmail: String?
-    var githubURL: String?
-    var organizationName: String?
-    var repositoryURL: URL?
-    var forceEnabled: Bool = false
-    
-    init(commandLineArguments arguments: [String]) {
-        for (index, argument) in arguments.enumerated() {
-            switch argument.lowercased() {
-            case "--destination", "-d":
-                destination = arguments.element(after: index)
-            case "--project", "-p":
-                projectName = arguments.element(after: index)
-            case "--name", "-n":
-                authorName = arguments.element(after: index)
-            case "--email", "-e":
-                authorEmail = arguments.element(after: index)
-            case "--url", "-u":
-                githubURL = arguments.element(after: index)
-            case "--organization", "-o":
-                organizationName = arguments.element(after: index)
-            case "--repo", "-r":
-                if let urlString = arguments.element(after: index) {
-                    repositoryURL = URL(string: urlString)
+extension CommandLine {
+    static func options() throws -> [String:String] {
+        var options: [String:String] = [:]
+        for (index, argument) in self.arguments.enumerated() {
+            if argument == "--no-force" {
+                options["force"] = "no"
+            } else if argument == "--force" {
+                options["force"] = "yes"
+            } else if argument.hasPrefix("--") {
+                let name = argument.substring(from: argument.index(argument.startIndex, offsetBy: 2))
+                guard let value = arguments.element(after: index) else {
+                    throw "Expecting value after option \"\(argument)\""
                 }
-            case "--force", "-f":
-                forceEnabled = true
-            default:
-                break
+                guard !value.hasPrefix("--") else {
+                    throw "Expecting value after option \"\(argument)\", but received another option \"\(value)\""
+                }
+                options[name] = value
             }
         }
+        return options
     }
 }
 
-class StringReplacer {
-    private let projectName: String
-    private let authorName: String
-    private let authorEmail: String
-    private let gitHubURL: String
-    private let year: String
-    private let organizationName: String
-    
-    init(projectName: String, authorName: String, authorEmail: String?, gitHubURL: String?, organizationName: String?) {
-        self.projectName = projectName
-        self.authorName = authorName
-        self.authorEmail = authorEmail ?? ""
-        self.gitHubURL = gitHubURL ?? ""
-        self.organizationName = organizationName ?? projectName
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "YYYY"
-        self.year = dateFormatter.string(from: Date())
+extension String: Error {}
+
+extension String {
+    var asBool: Bool? {
+        if self == "n" || self == "false" || self == "no" {
+            return false
+        }
+        if self == "y" || self == "true" || self == "yes" {
+            return true
+        }
+        return nil
     }
+}
+
+struct StringReplacer {
+    let replacements: [String:String]
     
     func process(string: String) -> String {
-        return string.replacingOccurrences(of: "{PROJECT}", with: projectName)
-                     .replacingOccurrences(of: "{AUTHOR}", with: authorName)
-                     .replacingOccurrences(of: "{EMAIL}", with: authorEmail)
-                     .replacingOccurrences(of: "{URL}", with: gitHubURL)
-                     .replacingOccurrences(of: "{YEAR}", with: year)
-                     .replacingOccurrences(of: "{ORGANIZATION}", with: organizationName)
+        var result = string
+        for (key, value) in replacements {
+            result = result.replacingOccurrences(of: key, with: value)
+        }
+        return result
     }
     
     func process(filesInFolderWithPath folderPath: String) throws {
         let fileManager = FileManager.default
         
         for itemName in try fileManager.contentsOfDirectory(atPath: folderPath) {
-            if itemName.hasPrefix(".") {
+            
+            if itemName == ".DS_Store" {
                 continue
             }
             
@@ -178,214 +157,295 @@ class StringReplacer {
                 continue
             }
             
-            let fileContents = try String(contentsOfFile: itemPath)
-            try process(string: fileContents).write(toFile: newItemPath, atomically: false, encoding: .utf8)
-            
-            if newItemPath != itemPath {
-                try fileManager.removeItem(atPath: itemPath)
+            if let fileContents = try? String(contentsOfFile: itemPath, encoding: .utf8) {
+                try process(string: fileContents).write(toFile: newItemPath, atomically: false, encoding: .utf8)
+                if newItemPath != itemPath {
+                    try fileManager.removeItem(atPath: itemPath)
+                }
             }
         }
     }
 }
 
-// MARK: - Functions
-
-func printError(_ message: String) {
-    print("👮  \(message)")
-}
-
-func askForRequiredInfo(question: String, errorMessage errorMessageClosure: @autoclosure () -> String) -> String {
-    print(question)
+struct Config {
     
-    guard let info = readLine()?.nonEmpty else {
-        printError("\(errorMessageClosure()). Try again.")
-        return askForRequiredInfo(question: question, errorMessage: errorMessageClosure)
+    let entries: [Entry]
+    
+    struct Entry {
+        let name: String
+        let find: String
+        let description: String
+        let suggestion: String?
+        let hidden: Bool
+        let optional: Bool
     }
     
-    return info
-}
-
-func askForOptionalInfo(question: String, questionSuffix: String = "You may leave this empty.") -> String? {
-    print("\(question) \(questionSuffix)")
-    return readLine()?.nonEmpty
-}
-
-func askForBooleanInfo(question: String) -> Bool {
-    let errorMessage = "Please enter Y/y (yes) or N/n (no)"
-    let answerString = askForRequiredInfo(question: "\(question) (Y/N)", errorMessage: errorMessage)
+    init(entries: [Entry]) {
+        self.entries = entries
+    }
     
-    switch answerString.lowercased() {
-    case "y":
-        return true
-    case "n":
-        return false
-    default:
-        printError("\(errorMessage). Try again.")
-        return askForBooleanInfo(question: question)
+    init(file: String) throws {
+        let data = try NSData(contentsOfFile: file) as Data
+        let json = try JSONSerialization.jsonObject(with: data)
+        guard let dict = json as? [String:Any] else {
+            throw "Expecting format of json to be { ... } in file \"\(file)\"."
+        }
+        guard let replace = dict["replace"] as? [Any] else {
+            throw "Expecting format of \"replace\" to be [ ... ] in file \"\(file)\"."
+        }
+        self.entries = try Config.entriesFromJson(replace)
+    }
+    
+    func resolvedSuggestions(_ suggestionConstants: [String:String]) -> Config {
+        var entries: [Entry] = []
+        for entry in self.entries {
+            let resolvedSuggestion: String?
+            if let suggestionKey = entry.suggestion, let resolved = suggestionConstants[suggestionKey] {
+                resolvedSuggestion = resolved
+            } else {
+                resolvedSuggestion = entry.suggestion
+            }
+            let resolvedEntry = Entry(name: entry.name, find: entry.find, description: entry.description, suggestion: resolvedSuggestion, hidden: entry.hidden, optional: entry.optional)
+            entries.append(resolvedEntry)
+        }
+        return Config(entries: entries)
+    }
+    
+    static func entriesFromJson(_ json: [Any]) throws -> [Entry] {
+        
+        var entries: [Entry] = []
+        for (index, value) in json.enumerated() {
+            guard let attributes = value as? [String:Any] else {
+                throw "Expecting format of \(value) to be a dictionary with \n- field (required string)\n- description (required string)\n- optional (optional bool)\n- suggestion (optional string)\n- hidden (optional bool)."
+            }
+            guard let find = attributes["find"] as? String else {
+                throw "Missing required attribute \"find\" at index \(index) in array with value \(value)"
+            }
+            guard let description = attributes["description"] as? String else {
+                throw "Missing required attribute \"description\" for key \"\(find)\" array with value \(value)"
+            }
+            let suggestion = attributes["suggestion"] as? String
+            let hidden = attributes["hidden"] as? Bool ?? false
+            let optional = attributes["optional"] as? Bool ?? false
+            let rangeOfFirstTwoCharacters = Range(uncheckedBounds: (find.startIndex, find.index(find.startIndex, offsetBy: 2)))
+            
+            let name = attributes["name"] as? String ?? find
+                .replacingOccurrences(of: "S-", with: "", range: rangeOfFirstTwoCharacters)
+                .replacingOccurrences(of: "_", with: "-")
+                .lowercased()
+            let entry = Entry(name: name, find: find, description: description, suggestion: suggestion, hidden: hidden, optional: optional)
+            entries.append(entry)
+        }
+        return entries
     }
 }
 
-func askForDestination() -> String {
-    let destination = askForOptionalInfo(
-        question: "📦  Where would you like to generate a project?",
-        questionSuffix: "(Leave empty to use current directory)"
-    )
+protocol OptionsSolver {
+    func option(_ name: String, description: String, required: Bool, suggestion: String?) -> String?
+}
+
+struct CommandLineOptionsSolver: OptionsSolver {
     
-    let fileManager = FileManager.default
+    let options: [String:String]
+    let force: Bool
     
-    if let destination = destination {
-        guard fileManager.fileExists(atPath: destination) else {
-            printError("That path doesn't exist. Try again.")
-            return askForDestination()
+    init() throws {
+        options = try CommandLine.options()
+        force = options["force"]?.asBool ?? false
+    }
+    
+    func option(_ name: String, description: String, required: Bool, suggestion: String?) -> String? {
+        if let value = options[name] {
+            return value
+        }
+        if !force {
+            if let suggestion = suggestion {
+                print("\(name.capitalized): \(description). Leave blank to use \"\(suggestion)\"")
+            } else {
+                print("\(name.capitalized): \(description)")
+            }
+            if let value = readLine()?.nonEmpty {
+                print(" ")
+                return value
+            }
+            print(" ")
+            if let suggestion = suggestion {
+                return suggestion
+            }
+            if required {
+                print("Invalid value. Try again.")
+                return option(name, description: description, required: required, suggestion: suggestion)
+            }
+            return nil
+        }
+        return nil
+    }
+}
+
+struct Program {
+    
+    let options: OptionsSolver
+    
+    func run() throws {
+        
+        guard let destination = options.option("destination",
+                                               description: "Where do you want to create the project?",
+                                               required: true,
+                                               suggestion: nil) else
+        {
+            throw "Missing argument destination"
         }
         
-        return destination
-    }
-    
-    return fileManager.currentDirectoryPath
-}
-
-func askForProjectName(destination: String) -> String {
-    let projectFolderName = destination.withoutSuffix("/").components(separatedBy: "/").last!
-    
-    let projectName = askForOptionalInfo(
-        question: "📛  What's the name of your project?",
-        questionSuffix: "(Leave empty to use the name of the project folder: \(projectFolderName))"
-    )
-    
-    return projectName ?? projectFolderName
-}
-
-func askForAuthorName() -> String {
-    let gitName = Process().gitConfigValue(forKey: "user.name")
-    let question = "👶  What's your name?"
-    
-    if let gitName = gitName {
-        let authorName = askForOptionalInfo(question: question, questionSuffix: "(Leave empty to use your git config name: \(gitName))")
-        return authorName ?? gitName
-    }
-    
-    return askForRequiredInfo(question: question, errorMessage: "Your name cannot be empty")
-}
-
-func askForAuthorEmail() -> String? {
-    let gitEmail = Process().gitConfigValue(forKey: "user.email")
-    let question = "📫  What's your email address (for Podspec)?"
-    
-    if let gitEmail = gitEmail {
-        let authorEmail = askForOptionalInfo(question: question, questionSuffix: "(Leave empty to use your git config email: \(gitEmail))")
-        return authorEmail ?? gitEmail
-    }
-    
-    return askForOptionalInfo(question: question)
-}
-
-func askForGitHubURL(destination: String) -> String? {
-    let gitURL = Process().launchBash(withCommand: "cd \(destination) && git remote get-url origin")?
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-        .withoutSuffix(".git")
-    
-    let question = "🌍  Any GitHub URL that you'll be hosting this project at (for Podspec)?"
-    
-    if let gitURL = gitURL {
-        let gitHubURL = askForOptionalInfo(question: question, questionSuffix: "(Leave empty to use the remote URL of your repo: \(gitURL))")
-        return gitHubURL ?? gitURL
-    }
-    
-    return askForOptionalInfo(question: question)
-}
-
-func performCommand(description: String, command: () throws -> Void) rethrows {
-    print("👉  \(description)...")
-    try command()
-    print("✅  Done")
-}
-
-// MARK: - Program
-
-print("Welcome to the SwiftPlate project generator 🐣")
-
-let arguments = Arguments(commandLineArguments: CommandLine.arguments)
-let destination = arguments.destination ?? askForDestination()
-let projectName = arguments.projectName ?? askForProjectName(destination: destination)
-let authorName = arguments.authorName ?? askForAuthorName()
-let authorEmail = arguments.authorEmail ?? askForAuthorEmail()
-let gitHubURL = arguments.githubURL ?? askForGitHubURL(destination: destination)
-let organizationName = arguments.organizationName ?? askForOptionalInfo(question: "🏢  What's your organization name?")
-
-print("---------------------------------------------------------------------")
-print("SwiftPlate will now generate a project with the following parameters:")
-print("📦  Destination: \(destination)")
-print("📛  Name: \(projectName)")
-print("👶  Author: \(authorName)")
-
-if let authorEmail = authorEmail {
-    print("📫  Author email: \(authorEmail)")
-}
-
-if let gitHubURL = gitHubURL {
-    print("🌍  GitHub URL: \(gitHubURL)")
-}
-
-if let organizationName = organizationName {
-    print("🏢  Organization Name: \(organizationName)")
-}
-
-print("---------------------------------------------------------------------")
-
-if !arguments.forceEnabled {
-    if !askForBooleanInfo(question: "Proceed? ✅") {
-        exit(0)
-    }
-}
-
-print("🚀  Starting to generate project \(projectName)...")
-
-do {
-    let fileManager = FileManager.default
-    let temporaryDirectoryPath = destination + "/swiftplate_temp"
-    let gitClonePath = "\(temporaryDirectoryPath)/SwiftPlate"
-    let templatePath = "\(gitClonePath)/Template"
-    
-    performCommand(description: "Removing any previous temporary folder") {
-        try? fileManager.removeItem(atPath: temporaryDirectoryPath)
-    }
-    
-    try performCommand(description: "Making temporary folder (\(temporaryDirectoryPath))") {
-        try fileManager.createDirectory(atPath: temporaryDirectoryPath, withIntermediateDirectories: false, attributes: nil)
-    }
-    
-    performCommand(description: "Making a local clone of the SwiftPlate repo") {
-        let repositoryURL = arguments.repositoryURL ?? URL(string: "https://github.com/JohnSundell/SwiftPlate.git")!
-        Process().launchBash(withCommand: "git clone \(repositoryURL.absoluteString) '\(gitClonePath)' -q")
-    }
-    
-    try performCommand(description: "Copying template folder") {
-        for itemName in try fileManager.contentsOfDirectory(atPath: templatePath) {
-            let originPath = templatePath + "/" + itemName
-            let destinationPath = destination + "/" + itemName
-            try fileManager.copyItem(atPath: originPath, toPath: destinationPath)
+        guard let template = options.option("template",
+                                            description: "Which template do you want to use?",
+                                            required: true,
+                                            suggestion: nil) else
+        {
+            throw "Missing argument template"
         }
-    }
-    
-    try performCommand(description: "Removing temporary folder") {
-        try fileManager.removeItem(atPath: temporaryDirectoryPath)
-    }
-    
-    try performCommand(description: "Filling in template") {
-        let replacer = StringReplacer(
-            projectName: projectName,
-            authorName: authorName,
-            authorEmail: authorEmail,
-            gitHubURL: gitHubURL,
-            organizationName: organizationName
-        )
         
+        let suggestionConstants = constants(folderName: (destination as NSString).lastPathComponent)
+        let config = try cloneTemplate(template, to: destination)
+        let resolvedConfig = config.resolvedSuggestions(suggestionConstants)
+        
+        var replacements: [String:String] = [:]
+        
+        for entry in resolvedConfig.entries {
+            let replacement: String?
+            if entry.hidden {
+                guard let suggestion = entry.suggestion else {
+                    throw "Was supposed to replace \(entry.name), but the suggested value (\(entry.suggestion)) is not known"
+                }
+                replacement = suggestion
+            } else {
+                replacement = options.option(entry.name, description: entry.description, required: !entry.optional, suggestion: entry.suggestion)
+            }
+            if let replacement = replacement {
+                replacements[entry.find] = replacement
+                replacements[entry.find.replacingOccurrences(of: "-", with: "_")] = replacement
+                replacements[entry.find.replacingOccurrences(of: "_", with: "-")] = replacement
+            }
+        }
+        
+        let replacer = StringReplacer(replacements: replacements)
         try replacer.process(filesInFolderWithPath: destination)
     }
     
-    print("All done! 🎉  Good luck with your project! 🚀")
+    private func prepareDestinationFolder(_ destination: String) throws {
+        var destinationIsDirectory: ObjCBool = false
+        if FileManager().fileExists(atPath: destination, isDirectory: &destinationIsDirectory) {
+            guard destinationIsDirectory.boolValue else {
+                throw "Destination (\(destination)) already exists and is a file not a directory."
+            }
+            var contents = (try? FileManager().contentsOfDirectory(atPath: destination)) ?? []
+            contents = contents.filter { $0 != ".DS_Store" }
+            guard contents.count == 0 else {
+                throw "Destination (\(destination)) folder already exist and contains files already. Contains: \(contents)"
+            }
+        } else {
+            do {
+                try FileManager().createDirectory(atPath: destination, withIntermediateDirectories: true)
+            } catch {
+                throw "Could not create folder at \(destination)"
+            }
+        }
+    }
+    
+    private func cloneTemplate(_ template: String, to destination: String) throws -> Config {
+        
+        try prepareDestinationFolder(destination)
+        
+        if template.hasPrefix("http") {
+            return try cloneZipUrl(template, to: destination)
+        } else if FileManager().fileExists(atPath: template) {
+            return try cloneTemplateFolder(template, to: destination)
+        } else if template.components(separatedBy: "/").count == 2 {
+            let githubZip = "https://github.com/\(template)/archive/master.zip"
+            return try cloneZipUrl(githubZip, to: destination)
+        } else {
+            throw "Template is not a local folder, url (zip) nor a github repo."
+        }
+    }
+    
+    private func cloneZipUrl(_ url: String, to destination: String) throws -> Config {
+        let temporaryFolder = "\(destination.withoutSuffix("/"))_swiftplate_download"
+        try? FileManager().removeItem(atPath: temporaryFolder)
+        try prepareDestinationFolder(temporaryFolder)
+        try performCommand(description: "Downloading template \(url)") {
+            let result = try Process().launchBash(withCommand: "curl -L \"\(url)\" | tar zx -C \"\(temporaryFolder)\"")
+            if let result = result {
+                print(result)
+            }
+        }
+        guard let contents = try FileManager().contentsOfDirectory(atPath: temporaryFolder).first else {
+            try? FileManager().removeItem(atPath: temporaryFolder)
+            throw "After unzipping contents of \(url) we expected to find a folder"
+        }
+        let template = (temporaryFolder as NSString).appendingPathComponent(contents)
+        let result = try cloneTemplateFolder(template, to: destination)
+        try? FileManager().removeItem(atPath: temporaryFolder)
+        return result
+    }
+    
+    private func cloneTemplateFolder(_ template: String, to destination: String) throws -> Config {
+        
+        var templateIsDirectory: ObjCBool = false
+        guard FileManager().fileExists(atPath: template, isDirectory: &templateIsDirectory) else {
+            throw "Internal error"
+        }
+        
+        let jsonPath: String
+        let templateDirectory: String
+        
+        if templateIsDirectory.boolValue {
+            templateDirectory = template
+            jsonPath = (templateDirectory as NSString).appendingPathComponent("swiftplate.json")
+        } else {
+            jsonPath = template
+            templateDirectory = (jsonPath as NSString).deletingLastPathComponent
+        }
+        
+        guard FileManager().fileExists(atPath: jsonPath) else {
+            throw "Template is missing swiftplate.json file. Should be located at \(jsonPath)"
+        }
+        
+        let config = try Config(file: jsonPath)
+        
+        try? FileManager().removeItem(atPath: (destination as NSString).appendingPathComponent(".DS_Store"))
+        try FileManager().removeItem(atPath: destination)
+        try FileManager().copyItem(atPath: templateDirectory, toPath: destination)
+        try? FileManager().removeItem(atPath: (destination as NSString).appendingPathComponent("swiftplate.json"))
+        return config
+    }
+    
+    private func performCommand(description: String, command: () throws -> Void) rethrows {
+        print("👉  \(description)...", terminator: "")
+        try command()
+        print("done")
+    }
+    
+    private func constants(folderName: String) -> [String:String] {
+        var consts: [String:String] = [:]
+        consts["git.user.name"] = try? Process().gitConfigValue(forKey: "user.name") ?? ""
+        consts["git.user.email"] = try? Process().gitConfigValue(forKey: "user.email") ?? ""
+        consts["date.year"] = {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "YYYY"
+            return dateFormatter.string(from: Date())
+        }()
+        consts["folder.name"] = folderName
+        return consts
+    }
+}
+
+do {
+    print("Welcome to the SwiftPlate project generator 🐣")
+    let options = try CommandLineOptionsSolver()
+    let program = Program(options: options)
+    try program.run()
+    print("All done! 🎉 Good luck with your project! 🚀")
 } catch {
     print("An error was encountered 🙁")
     print("Error: \(error)")
 }
+

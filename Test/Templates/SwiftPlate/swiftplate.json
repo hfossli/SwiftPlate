@@ -1,0 +1,35 @@
+{
+  "replace": [
+    {
+      "find": "S_PROJECT_NAME",
+      "description": "What's the name of your project?",
+      "suggestion": "folder.name"
+    },
+    {
+      "find": "S_AUTHOR_NAME",
+      "description": "What's your name?",
+      "suggestion": "git.user.name"
+    },
+    {
+      "find": "S_AUTHOR_EMAIL",
+      "description": "What's your email address?",
+      "suggestion": "git.user.email"
+    },
+    {
+      "find": "S_PROJECT_REPO_URL",
+      "description": "Any GitHub URL that you'll be hosting this project at (for Podspec)?",
+      "optional": true
+    },
+    {
+      "find": "S_COMPANY_NAME",
+      "description": "What's your organization name?",
+      "optional": true
+    },
+    {
+      "find": "2017",
+      "description": "Year",
+      "hidden": true,
+      "suggestion": "date.year"
+    }
+  ]
+}
